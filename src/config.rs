@@ -54,4 +54,10 @@ pub enum Commands {
         /// The text with tags (like <think>) to parse
         text: String,
     },
+    /// Inspect a model file to see its internal tensors and architecture
+    Inspect {
+        /// Path to the model weights file (e.g., .safetensors)
+        #[arg(long)]
+        model: String,
+    },
 }

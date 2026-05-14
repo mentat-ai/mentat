@@ -14,10 +14,10 @@ This document outlines the roadmap for building the Mentat sovereign inference e
 - [x] Implement parsers for structured outputs and agentic interactions.
 
 ## Phase 3: The Inference Engine (The "Motor")
-- [ ] Implement core Transformer block logic.
-- [ ] Implement Mixture-of-Experts (MoE) routing logic.
-- [ ] Build the Loader to read standard model weight formats (e.g., Safetensors, GGUF).
-- [ ] Implement KV caching for efficient, fast decoding.
+- [x] Implement core Transformer block logic.
+- [x] Implement Mixture-of-Experts (MoE) routing logic.
+- [x] Build the Loader to read standard model weight formats (e.g., Safetensors, GGUF).
+- [x] Implement KV caching for efficient, fast decoding.
 
 ## Phase 4: Native Tools (The "Agentic" Layer)
 - [ ] **Code Execution:** Implement a secure wrapper for isolated code execution.
