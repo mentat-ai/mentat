@@ -22,6 +22,57 @@
 
 Mentat is a completely independent, fast, and secure platform for running AI models locally. Built from the ground up in **Rust**, it extraction maximum performance from consumer hardware while ensuring absolute data privacy and architectural sovereignty.
 
+## 🗺️ Architectural Overview
+
+```mermaid
+graph TD
+    subgraph Input ["Input Layer"]
+        Prompt["User Prompt"]
+        Weights["Safetensors (.bin / .safetensors)"]
+    end
+
+    subgraph Core ["Mentat Inference Engine (Rust)"]
+        direction TB
+        Loader["Weight Loader (mmap)"]
+        Tokenizer["BPE Tokenizer"]
+        Parser["Harmony Parser"]
+        
+        subgraph Brain ["Transformer Model"]
+            direction LR
+            Attn["Attention (GQA)"]
+            MoE["Mixture of Experts"]
+            KV["KV Cache"]
+        end
+        
+        Math["Tensor Ops (MatMul, Add, Mul)"]
+    end
+
+    subgraph Tools ["Agentic Layer (Phase 4)"]
+        Python["Python (WASM Sandbox)"]
+        Browser["Headless Browser"]
+        FS["File Patcher"]
+    end
+
+    subgraph Hardware ["Hardware Acceleration (Phase 6)"]
+        Metal["Apple Metal"]
+        CUDA["NVIDIA CUDA"]
+    end
+
+    Prompt --> Tokenizer
+    Weights --> Loader
+    Loader --> Math
+    Tokenizer --> Brain
+    Brain --> Math
+    Math --> Attn
+    Math --> MoE
+    Attn --> KV
+    Brain --> Parser
+    Parser --> Python
+    Parser --> Browser
+    Parser --> FS
+    Math -.-> Hardware
+```
+
 ## 🏗️ Technical Architecture
 
 Mentat is designed with a modular, "purity-first" approach, separating the mathematical engine from the agentic capabilities.
@@ -92,4 +143,4 @@ Apache 2.0 - See [LICENSE](LICENSE) for details.
 
 ## 📈 Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=mentat-ai/mentat&type=Date)](https://star-history.com/#mentat-ai/mentat&Date)
+![Star History Chart](https://api.star-history.com/svg?repos=mentat-ai/mentat&type=Date)
