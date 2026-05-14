@@ -44,4 +44,14 @@ pub enum Commands {
         #[arg(long, default_value_t = 8080)]
         port: u16,
     },
+    /// Test the tokenizer interactively
+    Tokenize {
+        /// The text to tokenize
+        text: String,
+    },
+    /// Test the Harmony parser interactively
+    Parse {
+        /// The text with tags (like <think>) to parse
+        text: String,
+    },
 }
