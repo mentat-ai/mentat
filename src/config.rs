@@ -49,4 +49,9 @@ pub enum Commands {
         /// The text to tokenize
         text: String,
     },
+    /// Test the Harmony parser interactively
+    Parse {
+        /// The text with tags (like <think>) to parse
+        text: String,
+    },
 }

@@ -13,3 +13,4 @@
 // limitations under the License.
 
 pub mod bpe;
+pub mod parser;
