@@ -13,10 +13,11 @@
 // limitations under the License.
 
 use clap::Parser;
-use tracing::{Level, debug, info};
+use tracing::{debug, error, info, Level};
 use tracing_subscriber::FmtSubscriber;
 
 use mentat::config::{Commands, Config};
+use mentat::model::loader::Loader;
 use mentat::tokenizer::bpe::BpeTokenizer;
 use mentat::tokenizer::parser::HarmonyParser;
 
@@ -28,7 +29,9 @@ fn main() {
     } else {
         Level::INFO
     };
-    let subscriber = FmtSubscriber::builder().with_max_level(log_level).finish();
+    let subscriber = FmtSubscriber::builder()
+        .with_max_level(log_level)
+        .finish();
     tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 
     info!("Mentat Inference Engine starting...");
@@ -98,13 +101,38 @@ fn main() {
             info!("Initializing 'parse' test mode");
             println!("\n--- Parser Interactive Test ---");
             println!("Input Text:\n{}\n", text);
-            
+
             let blocks = HarmonyParser::parse(text);
-            
+
             for (i, block) in blocks.iter().enumerate() {
                 println!("Block {}: {:#?}", i + 1, block);
             }
             println!("----------------------------------");
         }
+        Commands::Inspect { model } => {
+            info!("Initializing 'inspect' mode");
+            println!("\n--- Model Inspection: {} ---", model);
+
+            match Loader::load_safetensors(model) {
+                Ok(weights) => {
+                    println!("Successfully loaded {} tensors.\n", weights.len());
+                    println!("{:<50} | {:<20} | {:<10}", "Tensor Name", "Shape", "Data Type");
+                    println!("{:-<50}-|-{:-<20}-|-{:-<10}", "", "", "");
+
+                    let mut sorted_names: Vec<_> = weights.keys().collect();
+                    sorted_names.sort();
+
+                    for name in sorted_names {
+                        let t = &weights[name];
+                        println!("{:<50} | {:<20?} | {:?}", name, t.shape, t.dtype);
+                    }
+                }
+                Err(e) => {
+                    error!("Failed to inspect model: {}", e);
+                }
+            }
+            println!("----------------------------------");
+        }
     }
 }
+
