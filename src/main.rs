@@ -17,16 +17,15 @@ use tracing::{Level, debug, info};
 use tracing_subscriber::FmtSubscriber;
 
 use mentat::config::{Commands, Config};
+use mentat::tokenizer::bpe::BpeTokenizer;
 
 fn main() {
     let config = Config::parse();
 
-    let log_level = if config.debug {
-        Level::DEBUG
-    } else {
-        Level::INFO
-    };
-    let subscriber = FmtSubscriber::builder().with_max_level(log_level).finish();
+    let log_level = if config.debug { Level::DEBUG } else { Level::INFO };
+    let subscriber = FmtSubscriber::builder()
+        .with_max_level(log_level)
+        .finish();
     tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 
     info!("Mentat Inference Engine starting...");
@@ -34,15 +33,56 @@ fn main() {
     match &config.command {
         Commands::Run { model, prompt } => {
             info!("Initializing 'run' mode");
-            debug!(
-                "Configuration loaded - model: {}, prompt: {:?}",
-                model, prompt
-            );
+            debug!("Configuration loaded - model: {}, prompt: {:?}", model, prompt);
             info!("Starting inference (Not implemented yet)");
         }
         Commands::Serve { port } => {
             info!("Initializing 'serve' mode");
             info!("Starting API server on port {} (Not implemented yet)", port);
+        }
+        Commands::Tokenize { text } => {
+            info!("Initializing 'tokenize' test mode");
+            let mut tokenizer = BpeTokenizer::new();
+
+            // Dynamically seed base vocabulary with all unique characters from the input
+            // so we don't get 'UNK' (0) for characters like 'a', 'c', ' ', etc.
+            let mut current_max_id = 1;
+            for c in text.chars() {
+                let s = c.to_string();
+                if !tokenizer.vocab.contains_key(&s) {
+                    tokenizer.vocab.insert(s.clone(), current_max_id);
+                    tokenizer.id_to_token.insert(current_max_id, s);
+                    current_max_id += 1;
+                }
+            }
+
+            // Seed a few artificial merge rules for demonstration
+            // Only add them if the characters exist in our dynamic vocab
+            if let (Some(&h), Some(&e)) = (tokenizer.vocab.get("h"), tokenizer.vocab.get("e")) {
+                tokenizer.vocab.insert("he".to_string(), current_max_id);
+                tokenizer.id_to_token.insert(current_max_id, "he".to_string());
+                tokenizer.merges.insert((h, e), current_max_id);
+                current_max_id += 1;
+            }
+
+            if let Some(&l) = tokenizer.vocab.get("l") {
+                tokenizer.vocab.insert("ll".to_string(), current_max_id);
+                tokenizer.id_to_token.insert(current_max_id, "ll".to_string());
+                tokenizer.merges.insert((l, l), current_max_id);
+            }
+
+            // Add special harmony token
+            tokenizer.add_special_token("<think>", 100);
+
+            println!("\n--- Tokenizer Interactive Test ---");
+            println!("Input Text: '{}'", text);
+
+            let encoded = tokenizer.encode(text);
+            println!("Encoded IDs: {:?}", encoded);
+
+            let decoded = tokenizer.decode(&encoded);
+            println!("Decoded Text: '{}'", decoded);
+            println!("----------------------------------");
         }
     }
 }

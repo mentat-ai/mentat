@@ -9,8 +9,8 @@ This document outlines the roadmap for building the Mentat sovereign inference e
 - [x] Setup CLI parsing and configuration management.
 
 ## Phase 2: Tokenization & Parsing
-- [ ] Implement a high-performance BPE (Byte Pair Encoding) tokenizer.
-- [ ] Support custom tokens for reasoning (e.g., think tags) and tool usage.
+- [x] Implement a high-performance BPE (Byte Pair Encoding) tokenizer.
+- [x] Support custom tokens for reasoning (e.g., think tags) and tool usage.
 - [ ] Implement parsers for structured outputs and agentic interactions.
 
 ## Phase 3: The Inference Engine (The "Motor")
