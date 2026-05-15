@@ -12,8 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub mod config;
-pub mod model;
-pub mod tensor;
-pub mod tokenizer;
-pub mod tools;
+pub mod browser;
+pub mod fs;
+pub mod python;
+
+/// A common trait for all agentic tools.
+pub trait Tool {
+    /// Returns the name of the tool (e.g., "python", "browser").
+    fn name(&self) -> &str;
+
+    /// Executes the tool with the given arguments.
+    /// Returns the standard output or an error message.
+    fn execute(&self, arguments: &str) -> Result<String, String>;
+}

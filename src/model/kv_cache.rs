@@ -49,11 +49,11 @@ impl KVCache {
             return Err(format!("layer index {} out of bounds", layer_idx));
         }
 
-        // In a real implementation, we would append to existing tensors or 
+        // In a real implementation, we would append to existing tensors or
         // write into a pre-allocated buffer at `self.current_pos`.
         // For now, we store them as entries.
         self.layers[layer_idx] = Some(KVCacheEntry { k: new_k, v: new_v });
-        
+
         Ok(())
     }
 

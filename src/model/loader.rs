@@ -39,7 +39,7 @@ impl Loader {
 
         for (name, view) in st.tensors() {
             let shape = view.shape().to_vec();
-            
+
             // Convert bytes to f32. This assumes Little Endian.
             // Modern models often use BF16 or F16. We upcast them to F32 for CPU processing.
             let bytes = view.data();
@@ -68,7 +68,7 @@ impl Loader {
                         let mut b = [0u8; 2];
                         b.copy_from_slice(chunk);
                         let u_val = u16::from_le_bytes(b);
-                        
+
                         // F16 to F32 conversion
                         let sign = (u_val & 0x8000) >> 15;
                         let exp = (u_val & 0x7C00) >> 10;
@@ -79,16 +79,25 @@ impl Loader {
                                 f32::from_bits((sign as u32) << 31)
                             } else {
                                 // Subnormal
-                                f32::from_bits(((sign as u32) << 31) | (127 - 14) << 23) * (mant as f32 / 1024.0)
+                                f32::from_bits(((sign as u32) << 31) | (127 - 14) << 23)
+                                    * (mant as f32 / 1024.0)
                             }
                         } else if exp == 31 {
                             if mant == 0 {
-                                if sign == 0 { f32::INFINITY } else { f32::NEG_INFINITY }
+                                if sign == 0 {
+                                    f32::INFINITY
+                                } else {
+                                    f32::NEG_INFINITY
+                                }
                             } else {
                                 f32::NAN
                             }
                         } else {
-                            f32::from_bits(((sign as u32) << 31) | ((exp as u32 + 127 - 15) << 23) | ((mant as u32) << 13))
+                            f32::from_bits(
+                                ((sign as u32) << 31)
+                                    | ((exp as u32 + 127 - 15) << 23)
+                                    | ((mant as u32) << 13),
+                            )
                         };
                         data.push(f_val);
                     }
@@ -98,7 +107,7 @@ impl Loader {
                         "unsupported data type in tensor {}: {:?}",
                         name,
                         view.dtype()
-                    ))
+                    ));
                 }
             }
 
