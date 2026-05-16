@@ -20,7 +20,7 @@ use mentat::config::{Commands, Config};
 use mentat::model::loader::Loader;
 use mentat::tokenizer::bpe::BpeTokenizer;
 use mentat::tokenizer::parser::{HarmonyParser, ParsedBlock};
-use mentat::tools::{Tool, python::PythonTool};
+use mentat::tools::{Tool, browser::BrowserTool, fs::FilePatcherTool, python::PythonTool};
 
 fn main() {
     let config = Config::parse();
@@ -116,6 +116,28 @@ fn main() {
                         println!(">> ⚙️ Executing Python Tool...");
                         let python_tool = PythonTool;
                         match python_tool.execute(arguments) {
+                            Ok(output) => {
+                                println!(">> ✅ Output:\n{}", output);
+                            }
+                            Err(err) => {
+                                println!(">> ❌ Error:\n{}", err);
+                            }
+                        }
+                    } else if tool_name == "file_patcher" {
+                        println!(">> 📂 Executing File Patcher Tool...");
+                        let fs_tool = FilePatcherTool;
+                        match fs_tool.execute(arguments) {
+                            Ok(output) => {
+                                println!(">> ✅ Output:\n{}", output);
+                            }
+                            Err(err) => {
+                                println!(">> ❌ Error:\n{}", err);
+                            }
+                        }
+                    } else if tool_name == "browser" {
+                        println!(">> 🌐 Executing Browser Tool...");
+                        let browser_tool = BrowserTool;
+                        match browser_tool.execute(arguments) {
                             Ok(output) => {
                                 println!(">> ✅ Output:\n{}", output);
                             }

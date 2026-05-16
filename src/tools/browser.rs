@@ -23,8 +23,24 @@ impl Tool for BrowserTool {
     }
 
     fn execute(&self, arguments: &str) -> Result<String, String> {
-        // Placeholder for a Rust-native headless browser or HTTP client.
-        // We could use `reqwest` or `headless_chrome` here in the future.
-        Ok(format!("Simulated browser fetch for: {}", arguments))
+        let url = arguments.trim();
+        if url.is_empty() {
+            return Err("BrowserTool requires a URL argument".to_string());
+        }
+
+        // Fetch the URL content using ureq
+        match ureq::get(url).call() {
+            Ok(response) => {
+                match response.into_string() {
+                    Ok(body) => {
+                        // Return the first 500 characters to simulate reading the page safely
+                        let preview: String = body.chars().take(500).collect();
+                        Ok(format!("Page content preview:\n{}...", preview))
+                    }
+                    Err(e) => Err(format!("Failed to read response body: {}", e)),
+                }
+            }
+            Err(e) => Err(format!("Failed to fetch URL '{}': {}", url, e)),
+        }
     }
 }
