@@ -20,9 +20,9 @@ This document outlines the roadmap for building the Mentat sovereign inference e
 - [x] Implement KV caching for efficient, fast decoding.
 
 ## Phase 4: Native Tools (The "Agentic" Layer)
-- [ ] **Code Execution:** Implement a secure wrapper for isolated code execution.
-- [ ] **Browser Tool:** Interface for web searching and content extraction.
-- [ ] **Filesystem Operations:** Implement atomic file patching (Create, Update, Delete).
+- [x] **Code Execution:** Implement a secure wrapper for isolated code execution.
+- [x] **Sovereign Browser:** A headless navigation tool for real-time web research.
+- [x] **Atomic File Patcher:** Safe filesystem operations for direct codebase modifications.
 
 ## Phase 5: Distribution & APIs
 - [ ] Build the robust CLI tool for direct interaction (`cargo run -- run`).

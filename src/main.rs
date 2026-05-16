@@ -13,13 +13,14 @@
 // limitations under the License.
 
 use clap::Parser;
-use tracing::{debug, error, info, Level};
+use tracing::{Level, debug, error, info};
 use tracing_subscriber::FmtSubscriber;
 
 use mentat::config::{Commands, Config};
 use mentat::model::loader::Loader;
 use mentat::tokenizer::bpe::BpeTokenizer;
-use mentat::tokenizer::parser::HarmonyParser;
+use mentat::tokenizer::parser::{HarmonyParser, ParsedBlock};
+use mentat::tools::{Tool, browser::BrowserTool, fs::FilePatcherTool, python::PythonTool};
 
 fn main() {
     let config = Config::parse();
@@ -29,9 +30,7 @@ fn main() {
     } else {
         Level::INFO
     };
-    let subscriber = FmtSubscriber::builder()
-        .with_max_level(log_level)
-        .finish();
+    let subscriber = FmtSubscriber::builder().with_max_level(log_level).finish();
     tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 
     info!("Mentat Inference Engine starting...");
@@ -106,6 +105,48 @@ fn main() {
 
             for (i, block) in blocks.iter().enumerate() {
                 println!("Block {}: {:#?}", i + 1, block);
+
+                // If the block is a python tool call, execute it!
+                if let ParsedBlock::ToolCall {
+                    tool_name,
+                    arguments,
+                } = block
+                {
+                    if tool_name == "python" {
+                        println!(">> ⚙️ Executing Python Tool...");
+                        let python_tool = PythonTool;
+                        match python_tool.execute(arguments) {
+                            Ok(output) => {
+                                println!(">> ✅ Output:\n{}", output);
+                            }
+                            Err(err) => {
+                                println!(">> ❌ Error:\n{}", err);
+                            }
+                        }
+                    } else if tool_name == "file_patcher" {
+                        println!(">> 📂 Executing File Patcher Tool...");
+                        let fs_tool = FilePatcherTool;
+                        match fs_tool.execute(arguments) {
+                            Ok(output) => {
+                                println!(">> ✅ Output:\n{}", output);
+                            }
+                            Err(err) => {
+                                println!(">> ❌ Error:\n{}", err);
+                            }
+                        }
+                    } else if tool_name == "browser" {
+                        println!(">> 🌐 Executing Browser Tool...");
+                        let browser_tool = BrowserTool;
+                        match browser_tool.execute(arguments) {
+                            Ok(output) => {
+                                println!(">> ✅ Output:\n{}", output);
+                            }
+                            Err(err) => {
+                                println!(">> ❌ Error:\n{}", err);
+                            }
+                        }
+                    }
+                }
             }
             println!("----------------------------------");
         }
@@ -116,7 +157,10 @@ fn main() {
             match Loader::load_safetensors(model) {
                 Ok(weights) => {
                     println!("Successfully loaded {} tensors.\n", weights.len());
-                    println!("{:<50} | {:<20} | {:<10}", "Tensor Name", "Shape", "Data Type");
+                    println!(
+                        "{:<50} | {:<20} | {:<10}",
+                        "Tensor Name", "Shape", "Data Type"
+                    );
                     println!("{:-<50}-|-{:-<20}-|-{:-<10}", "", "", "");
 
                     let mut sorted_names: Vec<_> = weights.keys().collect();
@@ -135,4 +179,3 @@ fn main() {
         }
     }
 }
-
