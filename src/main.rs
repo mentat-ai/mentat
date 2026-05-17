@@ -22,7 +22,8 @@ use mentat::tokenizer::bpe::BpeTokenizer;
 use mentat::tokenizer::parser::{HarmonyParser, ParsedBlock};
 use mentat::tools::{Tool, browser::BrowserTool, fs::FilePatcherTool, python::PythonTool};
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let config = Config::parse();
 
     let log_level = if config.debug {
@@ -46,7 +47,9 @@ fn main() {
         }
         Commands::Serve { port } => {
             info!("Initializing 'serve' mode");
-            info!("Starting API server on port {} (Not implemented yet)", port);
+            if let Err(e) = mentat::api::start_server(*port).await {
+                error!("API server failed: {}", e);
+            }
         }
         Commands::Tokenize { text } => {
             info!("Initializing 'tokenize' test mode");

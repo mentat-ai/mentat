@@ -25,12 +25,12 @@ This document outlines the roadmap for building the Mentat sovereign inference e
 - [x] **Atomic File Patcher:** Safe filesystem operations for direct codebase modifications.
 
 ## Phase 5: Distribution & APIs
-- [ ] Build the robust CLI tool for direct interaction (`cargo run -- run`).
-- [ ] Implement a standard local HTTP API server for integrations (`cargo run -- serve`).
-- [ ] Ensure the build process produces a static, easily distributable binary.
+- [x] Build the robust CLI tool for direct interaction (`cargo run -- run`).
+- [x] Implement a standard local HTTP API server for integrations (`cargo run -- serve`).
+- [x] Ensure the build process produces a static, easily distributable binary.
 
 ## Phase 6: Performance Optimization
-- [ ] SIMD acceleration for Rust (using `std::simd` or specialized crates).
+- [x] SIMD acceleration for Rust (using `std::simd` or specialized crates). *Note: Implemented using auto-vectorization hints and `rayon` for multi-threading.*
 - [ ] Hardware acceleration support via FFI (e.g., Apple Metal, CUDA) for maximum speed.
 - [ ] Deep benchmarking and memory profiling.
 

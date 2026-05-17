@@ -72,7 +72,7 @@ impl Loader {
                         // F16 to F32 conversion
                         let sign = (u_val & 0x8000) >> 15;
                         let exp = (u_val & 0x7C00) >> 10;
-                        let mut mant = u_val & 0x03FF;
+                        let mant = u_val & 0x03FF;
 
                         let f_val = if exp == 0 {
                             if mant == 0 {
