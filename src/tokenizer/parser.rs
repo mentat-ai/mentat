@@ -75,7 +75,7 @@ impl HarmonyParser {
                     continue;
                 }
 
-                // For tool calls (e.g., <python>)
+                // For tool calls (e.g., <python> or <file_patcher>)
                 if !in_think_block && rest.starts_with("python>") {
                     if !current_text.trim().is_empty() {
                         blocks.push(ParsedBlock::Text(current_text.clone()));
@@ -103,6 +103,66 @@ impl HarmonyParser {
 
                     blocks.push(ParsedBlock::ToolCall {
                         tool_name: "python".to_string(),
+                        arguments: tool_content,
+                    });
+                    continue;
+                } else if !in_think_block && rest.starts_with("file_patcher>") {
+                    if !current_text.trim().is_empty() {
+                        blocks.push(ParsedBlock::Text(current_text.clone()));
+                    }
+                    current_text.clear();
+
+                    for _ in 0..13 {
+                        chars.next();
+                    }
+
+                    // Read until </file_patcher>
+                    let mut tool_content = String::new();
+                    while let Some(tc) = chars.next() {
+                        if tc == '<' {
+                            let trest: String = chars.clone().collect();
+                            if trest.starts_with("/file_patcher>") {
+                                for _ in 0..14 {
+                                    chars.next();
+                                }
+                                break;
+                            }
+                        }
+                        tool_content.push(tc);
+                    }
+
+                    blocks.push(ParsedBlock::ToolCall {
+                        tool_name: "file_patcher".to_string(),
+                        arguments: tool_content,
+                    });
+                    continue;
+                } else if !in_think_block && rest.starts_with("browser>") {
+                    if !current_text.trim().is_empty() {
+                        blocks.push(ParsedBlock::Text(current_text.clone()));
+                    }
+                    current_text.clear();
+
+                    for _ in 0..8 {
+                        chars.next();
+                    }
+
+                    // Read until </browser>
+                    let mut tool_content = String::new();
+                    while let Some(tc) = chars.next() {
+                        if tc == '<' {
+                            let trest: String = chars.clone().collect();
+                            if trest.starts_with("/browser>") {
+                                for _ in 0..9 {
+                                    chars.next();
+                                }
+                                break;
+                            }
+                        }
+                        tool_content.push(tc);
+                    }
+
+                    blocks.push(ParsedBlock::ToolCall {
+                        tool_name: "browser".to_string(),
                         arguments: tool_content,
                     });
                     continue;

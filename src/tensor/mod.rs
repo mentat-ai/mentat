@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use rayon::prelude::*;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum DataType {
     Float32,
@@ -52,11 +54,18 @@ impl Tensor {
             ));
         }
 
-        let mut result = Tensor::new(self.shape.clone(), self.dtype.clone())?;
-        for (i, (&a, &b)) in self.data.iter().zip(other.data.iter()).enumerate() {
-            result.data[i] = a + b;
-        }
-        Ok(result)
+        let data = self
+            .data
+            .par_iter()
+            .zip(other.data.par_iter())
+            .map(|(&a, &b)| a + b)
+            .collect();
+
+        Ok(Tensor {
+            shape: self.shape.clone(),
+            dtype: self.dtype.clone(),
+            data,
+        })
     }
 
     pub fn mul(&self, other: &Tensor) -> Result<Tensor, String> {
@@ -67,11 +76,18 @@ impl Tensor {
             ));
         }
 
-        let mut result = Tensor::new(self.shape.clone(), self.dtype.clone())?;
-        for (i, (&a, &b)) in self.data.iter().zip(other.data.iter()).enumerate() {
-            result.data[i] = a * b;
-        }
-        Ok(result)
+        let data = self
+            .data
+            .par_iter()
+            .zip(other.data.par_iter())
+            .map(|(&a, &b)| a * b)
+            .collect();
+
+        Ok(Tensor {
+            shape: self.shape.clone(),
+            dtype: self.dtype.clone(),
+            data,
+        })
     }
 
     pub fn matmul(&self, other: &Tensor) -> Result<Tensor, String> {
@@ -89,19 +105,27 @@ impl Tensor {
         let cols_a = self.shape[1];
         let cols_b = other.shape[1];
 
-        let mut result = Tensor::new(vec![rows_a, cols_b], self.dtype.clone())?;
-
-        for i in 0..rows_a {
-            for j in 0..cols_b {
-                let mut sum: f32 = 0.0;
-                for k in 0..cols_a {
-                    sum += self.data[i * cols_a + k] * other.data[k * cols_b + j];
+        // We can compute each row of the result in parallel
+        let data: Vec<f32> = (0..rows_a)
+            .into_par_iter()
+            .flat_map(|i| {
+                let mut row_result = vec![0.0; cols_b];
+                for j in 0..cols_b {
+                    let mut sum: f32 = 0.0;
+                    for k in 0..cols_a {
+                        sum += self.data[i * cols_a + k] * other.data[k * cols_b + j];
+                    }
+                    row_result[j] = sum;
                 }
-                result.data[i * cols_b + j] = sum;
-            }
-        }
+                row_result
+            })
+            .collect();
 
-        Ok(result)
+        Ok(Tensor {
+            shape: vec![rows_a, cols_b],
+            dtype: self.dtype.clone(),
+            data,
+        })
     }
 }
 
