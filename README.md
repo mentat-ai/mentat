@@ -105,12 +105,14 @@ A sovereign implementation of the Transformer architecture:
 - [ ] **OpenAI-Compatible API:** A local HTTP server that acts as a drop-in replacement for OpenAI endpoints.
 - [ ] **Static Binaries:** Ensuring Mentat can be distributed as a single, dependency-free executable for Mac, Linux, and Windows.
 
-### Phase 6: Hardware Acceleration
-- [ ] **Apple Metal Support:** Native GPU acceleration for Apple Silicon via `cgo` or `metal-rs`.
-- [ ] **CUDA/vLLM Integration:** High-performance kernels for NVIDIA hardware.
+### Phase 6: Hardware Acceleration & Performance
+- [x] **Apple Metal Support:** Native GPU acceleration for Apple Silicon via `metal-rs`.
+- [x] **CUDA Integration:** High-performance kernels for NVIDIA hardware via `cudarc`.
+- [x] **Deep Benchmarking:** Built-in performance and memory profiling using `criterion` and `dhat`.
 
-### Phase 7: Local Fine-Tuning
-- [ ] **Native LoRA:** Implementation of Low-Rank Adaptation to allow users to "train" and adapt models to their own data locally without Python.
+### Phase 7: Sovereignty & Local Fine-Tuning
+- [x] **Data Collection Pipelines:** Local, opt-in privacy-first data recording.
+- [x] **Native LoRA:** Implementation of Low-Rank Adaptation to allow users to adapt models to their own data locally without Python.
 
 ## 🚀 Getting Started
 
@@ -133,6 +135,9 @@ cargo run --release -- tokenize "Hello, world!"
 
 # 🧩 Test the Harmony Parser
 cargo run --release -- parse "<think>Reasoning...</think> <python>print(1)</python>"
+
+# 🛡️ Run with local, opt-in data collection for future fine-tuning
+cargo run --release -- --opt-in-data-collection true tokenize "Hello, world!"
 ```
 
 ## 📜 License
