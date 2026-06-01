@@ -115,6 +115,7 @@ impl Loader {
                 shape,
                 dtype: DataType::Float32,
                 data,
+                device: crate::tensor::backend::Device::Cpu,
             };
             weights.insert(name.to_string(), tensor);
         }

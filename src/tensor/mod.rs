@@ -12,7 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use rayon::prelude::*;
+pub mod backend;
+pub mod cpu;
+
+#[cfg(feature = "cuda")]
+pub mod cuda;
+
+#[cfg(feature = "metal")]
+pub mod metal;
+
+use backend::{Backend, Device};
+use cpu::CpuBackend;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum DataType {
@@ -26,6 +36,7 @@ pub struct Tensor {
     pub shape: Vec<usize>,
     pub dtype: DataType,
     pub data: Vec<f32>, // Using f32 as the base for now
+    pub device: Device,
 }
 
 impl Tensor {
@@ -39,11 +50,28 @@ impl Tensor {
             shape,
             dtype,
             data: vec![0.0; size],
+            device: Device::Cpu,
         })
     }
 
     pub fn size(&self) -> usize {
         self.shape.iter().product()
+    }
+
+    pub fn to_device(&mut self, device: Device) {
+        self.device = device;
+    }
+
+    fn get_backend(&self) -> Box<dyn Backend> {
+        match self.device {
+            Device::Cpu => Box::new(CpuBackend),
+            #[cfg(feature = "cuda")]
+            Device::Cuda(_) => Box::new(cuda::CudaBackend),
+            #[cfg(feature = "metal")]
+            Device::Metal(_) => Box::new(metal::MetalBackend),
+            #[allow(unreachable_patterns)]
+            _ => unimplemented!("Backend not enabled or supported"),
+        }
     }
 
     pub fn add(&self, other: &Tensor) -> Result<Tensor, String> {
@@ -54,17 +82,14 @@ impl Tensor {
             ));
         }
 
-        let data = self
-            .data
-            .par_iter()
-            .zip(other.data.par_iter())
-            .map(|(&a, &b)| a + b)
-            .collect();
+        let backend = self.get_backend();
+        let data = backend.add(&self.shape, &self.dtype, &self.data, &other.data)?;
 
         Ok(Tensor {
             shape: self.shape.clone(),
             dtype: self.dtype.clone(),
             data,
+            device: self.device,
         })
     }
 
@@ -76,17 +101,14 @@ impl Tensor {
             ));
         }
 
-        let data = self
-            .data
-            .par_iter()
-            .zip(other.data.par_iter())
-            .map(|(&a, &b)| a * b)
-            .collect();
+        let backend = self.get_backend();
+        let data = backend.mul(&self.shape, &self.dtype, &self.data, &other.data)?;
 
         Ok(Tensor {
             shape: self.shape.clone(),
             dtype: self.dtype.clone(),
             data,
+            device: self.device,
         })
     }
 
@@ -101,30 +123,14 @@ impl Tensor {
             ));
         }
 
-        let rows_a = self.shape[0];
-        let cols_a = self.shape[1];
-        let cols_b = other.shape[1];
-
-        // We can compute each row of the result in parallel
-        let data: Vec<f32> = (0..rows_a)
-            .into_par_iter()
-            .flat_map(|i| {
-                let mut row_result = vec![0.0; cols_b];
-                for j in 0..cols_b {
-                    let mut sum: f32 = 0.0;
-                    for k in 0..cols_a {
-                        sum += self.data[i * cols_a + k] * other.data[k * cols_b + j];
-                    }
-                    row_result[j] = sum;
-                }
-                row_result
-            })
-            .collect();
+        let backend = self.get_backend();
+        let data = backend.matmul(&self.shape, &other.shape, &self.dtype, &self.data, &other.data)?;
 
         Ok(Tensor {
-            shape: vec![rows_a, cols_b],
+            shape: vec![self.shape[0], other.shape[1]],
             dtype: self.dtype.clone(),
             data,
+            device: self.device,
         })
     }
 }
