@@ -51,26 +51,84 @@ impl Attention {
         }
     }
 
-    /// Forward pass for Self-Attention.
-    /// Note: This is a structural skeleton. A full implementation requires
-    /// tensor reshaping, scaled dot-product attention (Q*K^T), Softmax, and RoPE.
     pub fn forward(&self, x: &Tensor) -> Result<Tensor, String> {
         // 1. Project input to Q, K, V
-        let _q = self.q_proj.forward(x)?;
-        let _k = self.k_proj.forward(x)?;
-        let _v = self.v_proj.forward(x)?;
+        let q = self.q_proj.forward(x)?;
+        let k = self.k_proj.forward(x)?;
+        let v = self.v_proj.forward(x)?;
 
-        // TODO: Apply Rotary Positional Embeddings (RoPE) to Q and K.
-        // TODO: Reshape Q, K, V into [batch_size, seq_len, num_heads, head_dim].
-        // TODO: Calculate Attention Scores = Softmax((Q * K^T) / sqrt(head_dim)).
-        // TODO: Calculate Attention Output = Scores * V.
-        // TODO: Reshape back to [batch_size, seq_len, hidden_size].
+        let seq_len = x.shape[0];
+        let q_dim = self.num_heads * self.head_dim;
+        let kv_dim = self.num_kv_heads * self.head_dim;
+        let group_size = if self.num_kv_heads > 0 { self.num_heads / self.num_kv_heads } else { 1 };
 
-        // 2. Final output projection
-        // For structural correctness in this Phase, we just pass the original x
-        // through the o_proj to validate the graph compiles and types match.
-        // In a real pass, this would be: self.o_proj.forward(&attention_output)
-        let out = self.o_proj.forward(x)?;
+        if q.data.len() < seq_len * q_dim || k.data.len() < seq_len * kv_dim || v.data.len() < seq_len * kv_dim {
+            return Err("Attention projection output shape mismatch with num_heads/num_kv_heads/head_dim parameters".to_string());
+        }
+
+        // Output tensor shape: [seq_len, q_dim]
+        let mut attn_out = Tensor::new(vec![seq_len, q_dim], x.dtype.clone())?;
+
+        let scale = 1.0 / (self.head_dim as f32).sqrt();
+
+        // 2. Loop over each head
+        for h in 0..self.num_heads {
+            let kv_h = h / group_size;
+
+            for i in 0..seq_len {
+                // Compute attention scores for head h, query token i, key token j
+                let mut scores = vec![0.0; seq_len];
+                let q_offset = i * q_dim + h * self.head_dim;
+
+                for j in 0..seq_len {
+                    if j > i {
+                        scores[j] = f32::NEG_INFINITY;
+                    } else {
+                        let mut sum = 0.0;
+                        let k_offset = j * kv_dim + kv_h * self.head_dim;
+                        for d in 0..self.head_dim {
+                            sum += q.data[q_offset + d] * k.data[k_offset + d];
+                        }
+                        scores[j] = sum * scale;
+                    }
+                }
+
+                // Softmax over j
+                let mut max_val = scores[0];
+                for j in 1..seq_len {
+                    if scores[j] > max_val {
+                        max_val = scores[j];
+                    }
+                }
+
+                let mut sum_exp = 0.0;
+                for j in 0..seq_len {
+                    let val = (scores[j] - max_val).exp();
+                    scores[j] = val;
+                    sum_exp += val;
+                }
+
+                if sum_exp > 0.0 {
+                    for j in 0..seq_len {
+                        scores[j] /= sum_exp;
+                    }
+                }
+
+                // Weighted sum of V
+                let out_offset = i * q_dim + h * self.head_dim;
+                for d in 0..self.head_dim {
+                    let mut sum = 0.0;
+                    for j in 0..seq_len {
+                        let v_offset = j * kv_dim + kv_h * self.head_dim;
+                        sum += scores[j] * v.data[v_offset + d];
+                    }
+                    attn_out.data[out_offset + d] = sum;
+                }
+            }
+        }
+
+        // 3. Final output projection
+        let out = self.o_proj.forward(&attn_out)?;
 
         Ok(out)
     }

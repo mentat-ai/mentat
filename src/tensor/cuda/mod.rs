@@ -51,15 +51,22 @@ pub struct CudaBackend {
     device: Arc<CudaDevice>,
 }
 
+use std::sync::OnceLock;
+
+static CUDA_BACKEND_DEVICE: OnceLock<Arc<CudaDevice>> = OnceLock::new();
+
 impl Default for CudaBackend {
     fn default() -> Self {
-        let device = CudaDevice::new(0).expect("No CUDA device found");
-        
-        let ptx = compile_ptx(CU_SOURCE).expect("Failed to compile PTX");
-        device.load_ptx(ptx, "kernels", &["add_kernel", "mul_kernel", "matmul_kernel"])
-              .expect("Failed to load PTX modules");
+        let device = CUDA_BACKEND_DEVICE.get_or_init(|| {
+            let device = CudaDevice::new(0).expect("No CUDA device found");
+            
+            let ptx = compile_ptx(CU_SOURCE).expect("Failed to compile PTX");
+            device.load_ptx(ptx, "kernels", &["add_kernel", "mul_kernel", "matmul_kernel"])
+                  .expect("Failed to load PTX modules");
+            device
+        });
 
-        CudaBackend { device }
+        CudaBackend { device: device.clone() }
     }
 }
 

@@ -33,15 +33,18 @@ impl Expert {
     /// Forward pass through the expert.
     /// Standard SwiGLU FFN: output = (Swish(x * w1) * (x * w3)) * w2
     pub fn forward(&self, x: &Tensor) -> Result<Tensor, String> {
-        // For structural demonstration, we just do a linear pass.
-        // In full implementation, we'd apply the non-linear activation here.
-        let mut _hidden1 = self.w1.forward(x)?;
-        let _hidden3 = self.w3.forward(x)?;
+        let mut h1 = self.w1.forward(x)?;
+        let h3 = self.w3.forward(x)?;
 
-        // Simulate: hidden1 = swish(hidden1) * hidden3
+        // Apply Swish/SiLU on h1 and multiply by h3: (x * w1) * sigmoid(x * w1) * (x * w3)
+        for i in 0..h1.data.len() {
+            let val = h1.data[i];
+            let sigmoid = 1.0 / (1.0 + (-val).exp());
+            h1.data[i] = val * sigmoid * h3.data[i];
+        }
 
         // Output projection
-        let output = self.w2.forward(&_hidden1)?;
+        let output = self.w2.forward(&h1)?;
         Ok(output)
     }
 }
@@ -69,22 +72,74 @@ impl MoE {
 
     /// Forward pass for the MoE block.
     pub fn forward(&self, x: &Tensor) -> Result<Tensor, String> {
-        // 1. Calculate routing probabilities
-        // Logits shape: [batch_size, num_experts]
-        let _logits = self.gate.forward(x)?;
+        let seq_len = x.shape[0];
+        let hidden_size = x.shape[1];
+        let num_experts = self.experts.len();
 
-        // TODO: Apply Softmax to logits to get routing probabilities.
-        // TODO: Select the indices of the `top_k` highest probabilities per token.
-        // TODO: Route the token to the corresponding experts in `self.experts`.
-        // TODO: Multiply the expert's output by the routing probability.
-        // TODO: Sum the outputs of the selected experts for the final token representation.
+        let mut output = Tensor::new(vec![seq_len, hidden_size], x.dtype.clone())?;
+        if num_experts == 0 {
+            return Ok(output);
+        }
 
-        // For structural correctness in this Phase, we just pass the original x
-        // to validate the graph compiles and types match.
-        // In reality, this returns the weighted sum of expert outputs.
+        // 1. Calculate routing logits: shape [seq_len, num_experts]
+        let logits = self.gate.forward(x)?;
 
-        // Just simulating a return of x for now to keep the signature intact.
-        let out = Tensor::new(x.shape.clone(), x.dtype.clone())?;
-        Ok(out)
+        // 2. Process each token individually
+        for i in 0..seq_len {
+            let logit_offset = i * num_experts;
+            let mut probs = vec![0.0; num_experts];
+
+            // Softmax over experts for token i
+            let mut max_logit = logits.data[logit_offset];
+            for e in 1..num_experts {
+                let l = logits.data[logit_offset + e];
+                if l > max_logit {
+                    max_logit = l;
+                }
+            }
+
+            let mut sum_exp = 0.0;
+            for e in 0..num_experts {
+                let p = (logits.data[logit_offset + e] - max_logit).exp();
+                probs[e] = p;
+                sum_exp += p;
+            }
+
+            if sum_exp > 0.0 {
+                for e in 0..num_experts {
+                    probs[e] /= sum_exp;
+                }
+            }
+
+            // Find top-k experts
+            let mut expert_probs: Vec<(usize, f32)> = probs.into_iter().enumerate().collect();
+            expert_probs.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+            let top_k_experts = &expert_probs[0..self.top_k.min(num_experts)];
+
+            // Renormalize top-k probabilities
+            let top_k_sum: f32 = top_k_experts.iter().map(|(_, p)| p).sum();
+
+            // Prepare token input tensor of shape [1, hidden_size]
+            let mut token_tensor = Tensor::new(vec![1, hidden_size], x.dtype.clone())?;
+            let token_offset = i * hidden_size;
+            token_tensor.data.copy_from_slice(&x.data[token_offset..token_offset + hidden_size]);
+
+            // Route to selected experts and sum outputs
+            for &(expert_idx, prob) in top_k_experts {
+                if top_k_sum > 0.0 {
+                    let weight = prob / top_k_sum;
+                    let expert = &self.experts[expert_idx];
+                    let expert_out = expert.forward(&token_tensor)?;
+
+                    // Accumulate scaled output
+                    let out_offset = i * hidden_size;
+                    for d in 0..hidden_size {
+                        output.data[out_offset + d] += expert_out.data[d] * weight;
+                    }
+                }
+            }
+        }
+
+        Ok(output)
     }
 }

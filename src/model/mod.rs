@@ -19,3 +19,4 @@ pub mod layers;
 pub mod loader;
 pub mod moe;
 pub mod lora;
+pub mod transformer;

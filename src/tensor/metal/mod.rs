@@ -15,10 +15,10 @@
 use crate::tensor::backend::{Backend, Device};
 use crate::tensor::DataType;
 use metal::{
-    Buffer, CommandQueue, ComputePipelineDescriptor, Device as MetalDevice, MTLResourceOptions, MTLSize,
+    CommandQueue, ComputePipelineDescriptor, Device as MetalDevice, MTLResourceOptions, MTLSize,
 };
 use std::mem;
-
+use std::sync::{Arc, OnceLock};
 const MSL_SOURCE: &str = r#"
 #include <metal_stdlib>
 using namespace metal;
@@ -64,7 +64,7 @@ kernel void matmul_kernel(
 "#;
 
 #[derive(Debug)]
-pub struct MetalBackend {
+struct MetalBackendInner {
     device: MetalDevice,
     queue: CommandQueue,
     add_pipeline: metal::ComputePipelineState,
@@ -72,49 +72,50 @@ pub struct MetalBackend {
     matmul_pipeline: metal::ComputePipelineState,
 }
 
-impl Clone for MetalBackend {
-    fn clone(&self) -> Self {
-        MetalBackend {
-            device: self.device.clone(),
-            queue: self.queue.clone(),
-            add_pipeline: self.add_pipeline.clone(),
-            mul_pipeline: self.mul_pipeline.clone(),
-            matmul_pipeline: self.matmul_pipeline.clone(),
-        }
-    }
+#[derive(Debug, Clone)]
+pub struct MetalBackend {
+    inner: Arc<MetalBackendInner>,
 }
+
+static METAL_BACKEND_INNER: OnceLock<Arc<MetalBackendInner>> = OnceLock::new();
 
 impl Default for MetalBackend {
     fn default() -> Self {
-        let device = MetalDevice::system_default().expect("No Metal device found");
-        let queue = device.new_command_queue();
-        
-        let compile_options = metal::CompileOptions::new();
-        let library = device
-            .new_library_with_source(MSL_SOURCE, &compile_options)
-            .expect("Failed to compile Metal library");
+        let inner = METAL_BACKEND_INNER.get_or_init(|| {
+            let device = MetalDevice::system_default().expect("No Metal device found");
+            let queue = device.new_command_queue();
+            
+            let compile_options = metal::CompileOptions::new();
+            let library = device
+                .new_library_with_source(MSL_SOURCE, &compile_options)
+                .expect("Failed to compile Metal library");
 
-        let add_function = library.get_function("add_kernel", None).unwrap();
-        let mut add_desc = ComputePipelineDescriptor::new();
-        add_desc.set_compute_function(Some(&add_function));
-        let add_pipeline = device.new_compute_pipeline_state_with_function(&add_desc.compute_function().unwrap()).unwrap();
+            let add_function = library.get_function("add_kernel", None).unwrap();
+            let add_desc = ComputePipelineDescriptor::new();
+            add_desc.set_compute_function(Some(&add_function));
+            let add_pipeline = device.new_compute_pipeline_state_with_function(&add_desc.compute_function().unwrap()).unwrap();
 
-        let mul_function = library.get_function("mul_kernel", None).unwrap();
-        let mut mul_desc = ComputePipelineDescriptor::new();
-        mul_desc.set_compute_function(Some(&mul_function));
-        let mul_pipeline = device.new_compute_pipeline_state_with_function(&mul_desc.compute_function().unwrap()).unwrap();
+            let mul_function = library.get_function("mul_kernel", None).unwrap();
+            let mul_desc = ComputePipelineDescriptor::new();
+            mul_desc.set_compute_function(Some(&mul_function));
+            let mul_pipeline = device.new_compute_pipeline_state_with_function(&mul_desc.compute_function().unwrap()).unwrap();
 
-        let matmul_function = library.get_function("matmul_kernel", None).unwrap();
-        let mut matmul_desc = ComputePipelineDescriptor::new();
-        matmul_desc.set_compute_function(Some(&matmul_function));
-        let matmul_pipeline = device.new_compute_pipeline_state_with_function(&matmul_desc.compute_function().unwrap()).unwrap();
+            let matmul_function = library.get_function("matmul_kernel", None).unwrap();
+            let matmul_desc = ComputePipelineDescriptor::new();
+            matmul_desc.set_compute_function(Some(&matmul_function));
+            let matmul_pipeline = device.new_compute_pipeline_state_with_function(&matmul_desc.compute_function().unwrap()).unwrap();
+
+            Arc::new(MetalBackendInner {
+                device,
+                queue,
+                add_pipeline,
+                mul_pipeline,
+                matmul_pipeline,
+            })
+        });
 
         MetalBackend {
-            device,
-            queue,
-            add_pipeline,
-            mul_pipeline,
-            matmul_pipeline,
+            inner: inner.clone(),
         }
     }
 }
@@ -128,28 +129,28 @@ impl Backend for MetalBackend {
         let size = a.len();
         let byte_size = (size * mem::size_of::<f32>()) as u64;
 
-        let buffer_a = self.device.new_buffer_with_data(
+        let buffer_a = self.inner.device.new_buffer_with_data(
             unsafe { mem::transmute(a.as_ptr()) },
             byte_size,
             MTLResourceOptions::StorageModeShared,
         );
-        let buffer_b = self.device.new_buffer_with_data(
+        let buffer_b = self.inner.device.new_buffer_with_data(
             unsafe { mem::transmute(b.as_ptr()) },
             byte_size,
             MTLResourceOptions::StorageModeShared,
         );
-        let buffer_c = self.device.new_buffer(byte_size, MTLResourceOptions::StorageModeShared);
+        let buffer_c = self.inner.device.new_buffer(byte_size, MTLResourceOptions::StorageModeShared);
 
-        let command_buffer = self.queue.new_command_buffer();
+        let command_buffer = self.inner.queue.new_command_buffer();
         let encoder = command_buffer.new_compute_command_encoder();
 
-        encoder.set_compute_pipeline_state(&self.add_pipeline);
+        encoder.set_compute_pipeline_state(&self.inner.add_pipeline);
         encoder.set_buffer(0, Some(&buffer_a), 0);
         encoder.set_buffer(1, Some(&buffer_b), 0);
         encoder.set_buffer(2, Some(&buffer_c), 0);
 
         let grid_size = MTLSize::new(size as u64, 1, 1);
-        let threadgroup_size = MTLSize::new(self.add_pipeline.max_total_threads_per_threadgroup(), 1, 1);
+        let threadgroup_size = MTLSize::new(self.inner.add_pipeline.max_total_threads_per_threadgroup(), 1, 1);
         encoder.dispatch_threads(grid_size, threadgroup_size);
         encoder.end_encoding();
 
@@ -172,28 +173,28 @@ impl Backend for MetalBackend {
         let size = a.len();
         let byte_size = (size * mem::size_of::<f32>()) as u64;
 
-        let buffer_a = self.device.new_buffer_with_data(
+        let buffer_a = self.inner.device.new_buffer_with_data(
             unsafe { mem::transmute(a.as_ptr()) },
             byte_size,
             MTLResourceOptions::StorageModeShared,
         );
-        let buffer_b = self.device.new_buffer_with_data(
+        let buffer_b = self.inner.device.new_buffer_with_data(
             unsafe { mem::transmute(b.as_ptr()) },
             byte_size,
             MTLResourceOptions::StorageModeShared,
         );
-        let buffer_c = self.device.new_buffer(byte_size, MTLResourceOptions::StorageModeShared);
+        let buffer_c = self.inner.device.new_buffer(byte_size, MTLResourceOptions::StorageModeShared);
 
-        let command_buffer = self.queue.new_command_buffer();
+        let command_buffer = self.inner.queue.new_command_buffer();
         let encoder = command_buffer.new_compute_command_encoder();
 
-        encoder.set_compute_pipeline_state(&self.mul_pipeline);
+        encoder.set_compute_pipeline_state(&self.inner.mul_pipeline);
         encoder.set_buffer(0, Some(&buffer_a), 0);
         encoder.set_buffer(1, Some(&buffer_b), 0);
         encoder.set_buffer(2, Some(&buffer_c), 0);
 
         let grid_size = MTLSize::new(size as u64, 1, 1);
-        let threadgroup_size = MTLSize::new(self.mul_pipeline.max_total_threads_per_threadgroup(), 1, 1);
+        let threadgroup_size = MTLSize::new(self.inner.mul_pipeline.max_total_threads_per_threadgroup(), 1, 1);
         encoder.dispatch_threads(grid_size, threadgroup_size);
         encoder.end_encoding();
 
@@ -228,22 +229,22 @@ impl Backend for MetalBackend {
         let byte_size_b = (k * n * mem::size_of::<f32>()) as u64;
         let byte_size_c = (m * n * mem::size_of::<f32>()) as u64;
 
-        let buffer_a = self.device.new_buffer_with_data(
+        let buffer_a = self.inner.device.new_buffer_with_data(
             unsafe { mem::transmute(a.as_ptr()) },
             byte_size_a,
             MTLResourceOptions::StorageModeShared,
         );
-        let buffer_b = self.device.new_buffer_with_data(
+        let buffer_b = self.inner.device.new_buffer_with_data(
             unsafe { mem::transmute(b.as_ptr()) },
             byte_size_b,
             MTLResourceOptions::StorageModeShared,
         );
-        let buffer_c = self.device.new_buffer(byte_size_c, MTLResourceOptions::StorageModeShared);
+        let buffer_c = self.inner.device.new_buffer(byte_size_c, MTLResourceOptions::StorageModeShared);
 
-        let command_buffer = self.queue.new_command_buffer();
+        let command_buffer = self.inner.queue.new_command_buffer();
         let encoder = command_buffer.new_compute_command_encoder();
 
-        encoder.set_compute_pipeline_state(&self.matmul_pipeline);
+        encoder.set_compute_pipeline_state(&self.inner.matmul_pipeline);
         encoder.set_buffer(0, Some(&buffer_a), 0);
         encoder.set_buffer(1, Some(&buffer_b), 0);
         encoder.set_buffer(2, Some(&buffer_c), 0);
@@ -253,8 +254,7 @@ impl Backend for MetalBackend {
         encoder.set_bytes(5, mem::size_of::<u32>() as u64, unsafe { mem::transmute(&(n as u32)) });
 
         let grid_size = MTLSize::new(n as u64, m as u64, 1);
-        let _w = self.matmul_pipeline.max_total_threads_per_threadgroup();
-        // Use a simple 16x16 threadgroup if w >= 256
+        let _w = self.inner.matmul_pipeline.max_total_threads_per_threadgroup();
         let threadgroup_size = MTLSize::new(16, 16, 1);
         encoder.dispatch_threads(grid_size, threadgroup_size);
         encoder.end_encoding();

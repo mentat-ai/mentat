@@ -95,10 +95,65 @@ impl RmsNorm {
     }
 }
 
+/// A lookup table for token embeddings: maps token IDs to vectors.
+#[derive(Debug)]
+pub struct Embedding {
+    pub weight: Tensor,
+}
+
+impl Embedding {
+    pub fn new(weight: Tensor) -> Self {
+        Self { weight }
+    }
+
+    /// Forward pass: retrieves embedding vectors for a list of tokens.
+    pub fn forward(&self, tokens: &[u32]) -> Result<Tensor, String> {
+        let vocab_size = self.weight.shape[0];
+        let hidden_size = self.weight.shape[1];
+
+        let mut data = Vec::with_capacity(tokens.len() * hidden_size);
+        for &tok in tokens {
+            let idx = tok as usize;
+            if idx >= vocab_size {
+                return Err(format!(
+                    "Token ID {} is out of vocabulary bounds {}",
+                    idx, vocab_size
+                ));
+            }
+            let start = idx * hidden_size;
+            data.extend_from_slice(&self.weight.data[start..start + hidden_size]);
+        }
+
+        Ok(Tensor {
+            shape: vec![tokens.len(), hidden_size],
+            dtype: self.weight.dtype.clone(),
+            data,
+            device: self.weight.device,
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::tensor::DataType;
+
+    #[test]
+    fn test_embedding_forward() {
+        let mut weight = Tensor::new(vec![3, 2], DataType::Float32).unwrap();
+        weight.data = vec![
+            0.1, 0.2, // token 0
+            0.3, 0.4, // token 1
+            0.5, 0.6, // token 2
+        ];
+        let embedding = Embedding::new(weight);
+
+        let tokens = vec![2, 0, 1];
+        let result = embedding.forward(&tokens).unwrap();
+
+        assert_eq!(result.shape, vec![3, 2]);
+        assert_eq!(result.data, vec![0.5, 0.6, 0.1, 0.2, 0.3, 0.4]);
+    }
 
     #[test]
     fn test_linear_forward() {
