@@ -31,7 +31,7 @@ This document outlines the roadmap for building the Mentat sovereign inference e
 
 ## Phase 6: Performance Optimization
 - [x] SIMD acceleration for Rust (using `std::simd` or specialized crates). *Note: Implemented using auto-vectorization hints and `rayon` for multi-threading.*
-- [ ] Hardware acceleration support via FFI (e.g., Apple Metal, CUDA) for maximum speed.
+- [x] Hardware acceleration support via FFI (e.g., Apple Metal, CUDA) for maximum speed.
 - [ ] Deep benchmarking and memory profiling.
 
 ## Phase 7: Sovereignty & Fine-Tuning
