@@ -66,9 +66,9 @@ impl Tensor {
         match self.device {
             Device::Cpu => Box::new(CpuBackend),
             #[cfg(feature = "cuda")]
-            Device::Cuda(_) => Box::new(cuda::CudaBackend),
+            Device::Cuda(_) => Box::new(cuda::CudaBackend::default()),
             #[cfg(feature = "metal")]
-            Device::Metal(_) => Box::new(metal::MetalBackend),
+            Device::Metal(_) => Box::new(metal::MetalBackend::default()),
             #[allow(unreachable_patterns)]
             _ => unimplemented!("Backend not enabled or supported"),
         }
