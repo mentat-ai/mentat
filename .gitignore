@@ -29,3 +29,10 @@ rustc-ice-*.txt
 
 # Temp folders for reference/cloning
 tmp/
+
+# Models and large weight files
+models/
+*.safetensors
+*.bin
+*.gguf
+
