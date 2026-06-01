@@ -108,7 +108,7 @@ async fn main() {
             println!("Decoded Text: '{}'", decoded);
             println!("----------------------------------");
             
-            collector.record_interaction(&text, &decoded);
+            collector.record_interaction(text, &decoded);
         }
         Commands::Parse { text } => {
             info!("Initializing 'parse' test mode");

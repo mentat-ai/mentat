@@ -86,8 +86,8 @@ impl RmsNorm {
             let rms = ((sum_sq / hidden_size as f32) + self.eps).sqrt();
 
             // Normalize and scale by weight
-            for j in 0..hidden_size {
-                output.data[row_start + j] = (row[j] / rms) * self.weight.data[j];
+            for (j, &val) in row.iter().enumerate() {
+                output.data[row_start + j] = (val / rms) * self.weight.data[j];
             }
         }
 

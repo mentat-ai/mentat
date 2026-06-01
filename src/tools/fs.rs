@@ -70,14 +70,13 @@ impl Tool for FilePatcherTool {
                 }
 
                 // Ensure parent directories exist
-                if let Some(parent) = Path::new(path).parent() {
-                    if !parent.as_os_str().is_empty() {
-                        if let Err(e) = fs::create_dir_all(parent) {
-                            return Err(format!(
-                                "Failed to create parent directories for '{}': {}",
-                                path, e
-                            ));
-                        }
+                if let Some(parent) = Path::new(path).parent().filter(|p| !p.as_os_str().is_empty()) {
+                    let res = fs::create_dir_all(parent);
+                    if let Err(e) = res {
+                        return Err(format!(
+                            "Failed to create parent directories for '{}': {}",
+                            path, e
+                        ));
                     }
                 }
 

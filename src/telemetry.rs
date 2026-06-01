@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::PathBuf;
-use tracing::{error, info};
+use tracing::error;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct InteractionRecord {
@@ -36,7 +36,8 @@ impl DataCollector {
         let mentat_dir = home_dir.join(".mentat");
         
         if enabled {
-            if let Err(e) = std::fs::create_dir_all(&mentat_dir) {
+            let res = std::fs::create_dir_all(&mentat_dir);
+            if let Err(e) = res {
                 error!("Failed to create telemetry directory: {}", e);
             }
         }
@@ -60,7 +61,7 @@ impl DataCollector {
 
         match serde_json::to_string(&record) {
             Ok(json_line) => {
-                let mut file = OpenOptions::new()
+                let file = OpenOptions::new()
                     .create(true)
                     .append(true)
                     .open(&self.filepath);
