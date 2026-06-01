@@ -12,10 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub mod attention;
-pub mod block;
-pub mod kv_cache;
-pub mod layers;
-pub mod loader;
-pub mod moe;
-pub mod lora;
+//! Scaffolding for fine-tuning operations.
+//! Note: Full automatic differentiation (AutoGrad) is deferred.
+
+pub struct DummyOptimizer;
+
+impl DummyOptimizer {
+    pub fn step(&mut self) {
+        // Implement parameter updates here when AutoGrad is available
+    }
+}

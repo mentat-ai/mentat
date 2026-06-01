@@ -15,19 +15,14 @@
 use crate::tensor::DataType;
 use std::fmt::Debug;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Device {
+    #[default]
     Cpu,
     #[cfg(feature = "cuda")]
     Cuda(usize),
     #[cfg(feature = "metal")]
     Metal(usize),
-}
-
-impl Default for Device {
-    fn default() -> Self {
-        Device::Cpu
-    }
 }
 
 pub trait Backend: Debug {

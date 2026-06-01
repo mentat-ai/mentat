@@ -15,7 +15,7 @@
 use std::collections::HashMap;
 
 /// A high-performance Byte Pair Encoding (BPE) tokenizer.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct BpeTokenizer {
     /// Maps a string token to its ID.
     pub vocab: HashMap<String, u32>,
@@ -30,12 +30,7 @@ pub struct BpeTokenizer {
 impl BpeTokenizer {
     /// Creates a new, empty BPE tokenizer.
     pub fn new() -> Self {
-        Self {
-            vocab: HashMap::new(),
-            id_to_token: HashMap::new(),
-            merges: HashMap::new(),
-            special_tokens: HashMap::new(),
-        }
+        Self::default()
     }
 
     /// Adds a special token to the vocabulary.

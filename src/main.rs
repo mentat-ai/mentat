@@ -21,6 +21,7 @@ use mentat::model::loader::Loader;
 use mentat::tokenizer::bpe::BpeTokenizer;
 use mentat::tokenizer::parser::{HarmonyParser, ParsedBlock};
 use mentat::tools::{Tool, browser::BrowserTool, fs::FilePatcherTool, python::PythonTool};
+use mentat::telemetry::DataCollector;
 
 #[cfg(feature = "dhat-heap")]
 #[global_allocator]
@@ -31,6 +32,8 @@ async fn main() {
     let _profiler = dhat::Profiler::new_heap();
 
     let config = Config::parse();
+    
+    let collector = DataCollector::new(config.opt_in_data_collection);
 
     let log_level = if config.debug {
         Level::DEBUG
@@ -104,6 +107,8 @@ async fn main() {
             let decoded = tokenizer.decode(&encoded);
             println!("Decoded Text: '{}'", decoded);
             println!("----------------------------------");
+            
+            collector.record_interaction(text, &decoded);
         }
         Commands::Parse { text } => {
             info!("Initializing 'parse' test mode");
