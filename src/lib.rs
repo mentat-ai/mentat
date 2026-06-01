@@ -18,3 +18,5 @@ pub mod model;
 pub mod tensor;
 pub mod tokenizer;
 pub mod tools;
+pub mod telemetry;
+pub mod train;

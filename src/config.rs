@@ -24,6 +24,10 @@ pub struct Config {
     /// Enable debug logging
     #[arg(long, global = true)]
     pub debug: bool,
+
+    /// Opt-in to local data collection for future fine-tuning
+    #[arg(long, global = true, default_value_t = false)]
+    pub opt_in_data_collection: bool,
 }
 
 #[derive(Subcommand, Debug)]

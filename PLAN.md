@@ -35,5 +35,5 @@ This document outlines the roadmap for building the Mentat sovereign inference e
 - [x] Deep benchmarking and memory profiling.
 
 ## Phase 7: Sovereignty & Fine-Tuning
-- [ ] Data collection pipelines for local usage (opt-in, strictly private).
-- [ ] Research and implement fine-tuning capabilities (e.g., LoRA) directly within the Rust ecosystem (e.g., via `candle` or `tch-rs`) to allow users to adapt models natively.
+- [x] Data collection pipelines for local usage (opt-in, strictly private).
+- [x] Research and implement fine-tuning capabilities (e.g., LoRA) directly within the Rust ecosystem (e.g., via `candle` or `tch-rs`) to allow users to adapt models natively.
