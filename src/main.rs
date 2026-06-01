@@ -22,8 +22,14 @@ use mentat::tokenizer::bpe::BpeTokenizer;
 use mentat::tokenizer::parser::{HarmonyParser, ParsedBlock};
 use mentat::tools::{Tool, browser::BrowserTool, fs::FilePatcherTool, python::PythonTool};
 
+#[cfg(feature = "dhat-heap")]
+#[global_allocator]
+static ALLOC: dhat::Alloc = dhat::Alloc;
 #[tokio::main]
 async fn main() {
+    #[cfg(feature = "dhat-heap")]
+    let _profiler = dhat::Profiler::new_heap();
+
     let config = Config::parse();
 
     let log_level = if config.debug {
